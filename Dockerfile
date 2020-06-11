@@ -30,4 +30,3 @@ RUN cd LightField/ \
   && make \
   && make release 
 
-VOLUME volume

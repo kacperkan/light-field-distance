@@ -11,12 +11,12 @@ setup(
     packages=find_packages(
         exclude=["3DAlignment", "Executable", "LightField"]
     ),
-    install_requires=["docker>=4.2.0"],
+    install_requires=["trimesh>=3.6.43"],
     long_description=readme,
     description=(
         "light-field-distance is a BSD-licensed package for "
         "calculating Light Field Distance from two Wavefront OBJ "
-        "meshes using OpenGL and Docker underneath"
+        "meshes using OpenGL"
     ),
     classifiers=[
         u"Development Status :: 4 - Beta",

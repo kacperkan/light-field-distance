@@ -1,25 +1,44 @@
 import argparse
+import sys
+import os
 import shutil
+import subprocess
+import tempfile
+import uuid
 from pathlib import Path
 from typing import Optional
 
-import docker
-import docker.errors as docker_err
-import tempfile
-from docker.models.images import Image
+import numpy as np
+import trimesh
 
-CLIENT = docker.from_env()
-IMAGE_TAG = "lfd"
-CURRENT_PATH = Path(__file__).parent
 SIMILARITY_TAG = b"SIMILARITY:"
+
+GENERATED_FILES_NAMES = [
+    "all_q4_v1.8.art",
+    "all_q8_v1.8.art",
+    "all_q8_v1.8.cir",
+    "all_q8_v1.8.ecc",
+    "all_q8_v1.8.fd",
+]
+
+OUTPUT_NAME_TEMPLATES = [
+    "{}_q4_v1.8.art",
+    "{}_q8_v1.8.art",
+    "{}_q8_v1.8.cir",
+    "{}_q8_v1.8.ecc",
+    "{}_q8_v1.8.fd",
+]
 
 
 def find_similarity_in_logs(logs: bytes) -> float:
     """Get line from the logs where similarity is mentioned.
 
-    :param logs: Unprocessed logs from the docker container after a command was
-        run.
-    :return: Similarity measure.
+    Args:
+        logs: Unprocessed logs from the docker container after a command was
+            run.
+
+    Returns:
+        Similarity measure from the log.
     """
     logs = logs.split()
     similarity_line: Optional[bytes] = None
@@ -30,53 +49,141 @@ def find_similarity_in_logs(logs: bytes) -> float:
     return float(similarity_line)
 
 
-def create_image_if_necessary() -> Image:
-    """Check if image calculating distance and build it if it doesn't.
+class MeshEncoder:
+    """Class holding an object and preprocessing it using an external cmd."""
 
-    :return: Built image.
-    """
-    try:
-        return CLIENT.images.get(IMAGE_TAG)
-    except docker_err.ImageNotFound:
-        print("Docker image not found. Building (it may take a while) ...")
-        return CLIENT.images.build(path="./", tag=IMAGE_TAG)[0]
+    def __init__(self, vertices: np.ndarray, triangles: np.ndarray):
+        """Instantiate the class.
 
+        It instantiates an empty, temporary folder that will hold any
+        intermediate data necessary to calculate Light Field Distance.
 
-def get_light_field_distance(obj_file1: str, obj_file2: str) -> float:
-    """Calculate LFD for two shapes.
+        Args:
+            vertices: np.ndarray of vertices consisting of 3 coordinates each.
+            triangles: np.ndarray where each entry is a vector with 3 elements.
+                Each element correspond to vertices that create a triangle.
+        """
+        self.mesh = trimesh.Trimesh(vertices=vertices, faces=triangles)
+        self.temp_dir_path = Path(tempfile.mkdtemp())
+        self.file_name = uuid.uuid4()
+        self.temp_path = self.temp_dir_path / "{}.obj".format(self.file_name)
 
-    :param obj_file1: Path to either *.ply file or *.obj in PLY format.
-    :param obj_file2: Path to second file of the same format.
-    :return: LFD value.
-    """
-    file1 = Path(obj_file1)
-    file2 = Path(obj_file2)
+        self.mesh.export(self.temp_path.as_posix())
 
-    with tempfile.TemporaryDirectory() as volume_folder:
-        vol_folder = Path(volume_folder)
-        shutil.copy2(file1.as_posix(), vol_folder / file1.name)
-        shutil.copy2(file2.as_posix(), vol_folder / file2.name)
+    def get_path(self) -> str:
+        """Get path of the object.
 
-        create_image_if_necessary()
-        stdout = CLIENT.containers.run(
-            image=IMAGE_TAG,
-            command="./calculate_distance.sh {} {}".format(
-                file1.with_suffix("").name, file2.with_suffix("").name
-            ),
-            detach=False,
-            volumes={
-                vol_folder.absolute(): {
-                    "bind": "/usr/src/app/volume/",
-                    "mode": "rw",
-                }
-            },
-            security_opt=["seccomp=unconfined"],  # necessary for linux
-            tty=True,
+        Commands require that an object is represented without any extension.
+
+        Returns:
+            Path to the temporary object created in the file system that
+            holds the Wavefront OBJ data of the object.
+        """
+        return self.temp_path.with_suffix("").as_posix()
+
+    def align_mesh(self):
+        """Create data of a 3D mesh to calculate Light Field Distance.
+
+        It runs an external command that create intermediate files and moves
+        these files to created temporary folder.
+
+        Returns:
+            None
+        """
+        process = subprocess.Popen(
+            ["./3DAlignment", self.temp_path.with_suffix("").as_posix()],
+            cwd="Executable",
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
 
-        (vol_folder / file1.name).unlink()
-        (vol_folder / file2.name).unlink()
-    return find_similarity_in_logs(stdout)
+        output, err = process.communicate()
+        if len(err) > 0:
+            print(err)
+            sys.exit(1)
+
+        for file, out_file in zip(
+            GENERATED_FILES_NAMES, OUTPUT_NAME_TEMPLATES
+        ):
+            shutil.move(
+                os.path.join("Executable", file),
+                (
+                    self.temp_dir_path / out_file.format(self.file_name)
+                ).as_posix(),
+            )
+
+    def __del__(self):
+        shutil.rmtree(self.temp_dir_path.as_posix())
+
+
+class LightFieldDistance:
+    """Class that allows to calculate light field distance.
+
+    It supports representing objects in the Wavefront OBJ format.
+    """
+
+    def __init__(self, verbose: bool = 0):
+        """Instantiate the class.
+
+        Args:
+            verbose: Whether to display processing information performed step
+                by step.
+        """
+        self.verbose = verbose
+
+    def get_distance(
+        self,
+        vertices_1: np.ndarray,
+        triangles_1: np.ndarray,
+        vertices_2: np.ndarray,
+        triangles_2: np.ndarray,
+    ) -> float:
+        """Calculate LFD between two meshes.
+
+        These objects are taken as meshes from the Wavefront OBJ format. Hence
+        vertices represent coordinates as a matrix Nx3, while `triangles`
+        connects these vertices. Each entry in the `triangles` is a 3 element
+        vector consisting of indices to appropriate vertices.
+
+        Args:
+            vertices_1: np.ndarray of vertices of the first object.
+            triangles_1: np.ndarray of indices to vertices corresponding
+                to particular indices connecting and forming a triangle.
+            vertices_2: np.ndarray of vertices of the second object.
+            triangles_2: np.ndarray of indices to vertices corresponding
+                to particular indices connecting and forming a triangle. This
+                parameter is for the second object.
+
+        Returns:
+            Light Field Distance between `object_1` and `object_2`.
+        """
+        mesh_1 = MeshEncoder(vertices_1, triangles_1)
+        mesh_2 = MeshEncoder(vertices_2, triangles_2)
+
+        if self.verbose:
+            print("Aligning mesh 1 at {} ...".format(mesh_1.get_path()))
+        mesh_1.align_mesh()
+
+        if self.verbose:
+            print("Aligning mesh 2 at {} ...".format(mesh_2.get_path()))
+        mesh_2.align_mesh()
+
+        if self.verbose:
+            print("Calculating distances ...")
+
+        process = subprocess.Popen(
+            ["./Distance", mesh_1.get_path(), mesh_2.get_path()],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd="Executable",
+        )
+
+        output, err = process.communicate()
+        lfd = find_similarity_in_logs(output)
+
+        return lfd
 
 
 def main():
@@ -100,7 +207,14 @@ def main():
 
     args = parser.parse_args()
 
-    lfd = get_light_field_distance(args.file1, args.file2)
+    lfd_calc = LightFieldDistance(verbose=True)
+
+    mesh_1: trimesh.Trimesh = trimesh.load(args.file1)
+    mesh_2: trimesh.Trimesh = trimesh.load(args.file2)
+
+    lfd = lfd_calc.get_distance(
+        mesh_1.vertices, mesh_1.faces, mesh_2.vertices, mesh_2.faces
+    )
     print("LFD: {:.4f}".format(lfd))
 
 

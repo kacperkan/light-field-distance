@@ -1,6 +1,7 @@
 # Windows image file caches
 Thumbs.db
 ehthumbs.db
+__pycache__
 
 # Folder config file
 Desktop.ini
