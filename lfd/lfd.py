@@ -12,6 +12,7 @@ import numpy as np
 import trimesh
 
 SIMILARITY_TAG = b"SIMILARITY:"
+CURRENT_DIR = Path(__file__).parent
 
 GENERATED_FILES_NAMES = [
     "all_q4_v1.8.art",
@@ -92,7 +93,7 @@ class MeshEncoder:
         """
         process = subprocess.Popen(
             ["./3DAlignment", self.temp_path.with_suffix("").as_posix()],
-            cwd="Executable",
+            cwd=(CURRENT_DIR / "Executable").as_posix(),
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -107,7 +108,7 @@ class MeshEncoder:
             GENERATED_FILES_NAMES, OUTPUT_NAME_TEMPLATES
         ):
             shutil.move(
-                os.path.join("Executable", file),
+                os.path.join((CURRENT_DIR / "Executable").as_posix(), file),
                 (
                     self.temp_dir_path / out_file.format(self.file_name)
                 ).as_posix(),
@@ -177,7 +178,7 @@ class LightFieldDistance:
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            cwd="Executable",
+            cwd=(CURRENT_DIR / "Executable").as_posix(),
         )
 
         output, err = process.communicate()

@@ -1,1 +1,4 @@
-recursive-include *.c *.h Makefile *.obj *.txt *.sh
+recursive-include lfd/3DAlignment *.c *.h Makefile
+recursive-include lfd/LightField *.c *.h Makefile
+recursive-include lfd/Executable *.obj *.txt q8_table
+recursive-include lfd/examples *.obj

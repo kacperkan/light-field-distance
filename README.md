@@ -13,8 +13,7 @@ the container uses OSMesa for headless rendering.
 
 
 ## Requirements
-- docker
-- `pip install docker`
+- `pip install trimesh`
 
 ## Installation
 ```bash
@@ -31,26 +30,33 @@ No need to explicitly install anything.
 
 ## Usage
 ```python
-from lfd import get_light_field_distance
+from lfd import LightFieldDistance
+import trimesh
 
 # rest of code
-path_to_shape_1: str = ...
-path_to_shape_2: str = ...
+mesh_1: trimesh.Trimesh = ...
+mesh_2: trimesh.Trimesh = ...
 
-lfd_value: float = get_light_field_distance(path_to_shape_1, path_to_shape_2)
+lfd_value: float = LightFieldDistance(verbose=True).get_distance(
+    mesh_1.vertices, mesh_1.faces,
+    mesh_2.vertices, mesh_2.faces
+)
 ```
 The script will calculate light field distances 
 [[1]](http://www.cs.jhu.edu/~misha/Papers/Chen03.pdf) between two shapes. 
 Example usage:
 ```python
-from lfd import get_light_field_distance
+from lfd import LightFieldDistance
+import trimesh
 
 # rest of code
-path_to_shape_1 = "examples/cup1.obj"
-path_to_shape_2 = "examples/airplane.obj"
+mesh_1: trimesh.Trimesh = trimesh.load("lfd/examples/cup1.obj")
+mesh_2: trimesh.Trimesh = trimesh.load("lfd/examples/airplane.obj")
 
-lfd_value: float = get_light_field_distance(path_to_shape_1, path_to_shape_2)
-print(lfd_value)
+lfd_value: float = LightFieldDistance(verbose=True).get_distance(
+    mesh_1.vertices, mesh_1.faces,
+    mesh_2.vertices, mesh_2.faces
+)
 ```
 The lower the metric's value, the more similar shapes are in terms of the visual
 appearance
@@ -70,7 +76,6 @@ computations transparently.
 ## Contribution
 For anyone interested in having a contribution, these are things to be done. 
 Due to the time constraints, I'm not able to do these on my own:
-- [ ] adapt code to handle passing vertices and edges directlt
 - [ ] retrieve calculating coefficients from renders to be returned by a method
 - [ ] bind C code with pybind11 to allow direct computation from the python code
     without any Docker dependency

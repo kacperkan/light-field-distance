@@ -1,16 +1,18 @@
-from setuptools import setup, find_packages
+from pathlib import Path
+
+from setuptools import find_packages, setup
 
 with open("README.rst", "r") as f:
     readme = f.read()
 
+CURRENT_DIR = Path(__file__).parent / "lfd"
+
 setup(
     name="light-field-distance",
-    version="0.0.1",
+    version="0.0.9",
     author="Kacper Kania",
-    license=u"BSD",
-    packages=find_packages(
-        exclude=["3DAlignment", "Executable", "LightField"]
-    ),
+    license="BSD",
+    packages=find_packages(),
     install_requires=["trimesh>=3.6.43"],
     long_description=readme,
     description=(
@@ -18,21 +20,23 @@ setup(
         "calculating Light Field Distance from two Wavefront OBJ "
         "meshes using OpenGL"
     ),
+    zip_safe=False,
+    include_package_data=True,
     classifiers=[
-        u"Development Status :: 4 - Beta",
-        u"Environment :: Console",
-        u"Intended Audience :: Developers",
-        u"Intended Audience :: Education",
-        u"Intended Audience :: Science/Research",
-        u"License :: OSI Approved :: BSD License",
-        u"Operating System :: MacOS :: MacOS X",
-        u"Operating System :: Microsoft :: Windows",
-        u"Operating System :: POSIX",
-        u"Programming Language :: C",
-        u"Programming Language :: Python :: 3",
-        u"Topic :: Multimedia :: Graphics :: 3D Rendering",
-        u"Topic :: Scientific/Engineering",
-        u"Topic :: Scientific/Engineering :: Information Analysis",
-        u"Typing :: Typed",
+        "Development Status :: 4 - Beta",
+        "Environment :: Console",
+        "Intended Audience :: Developers",
+        "Intended Audience :: Education",
+        "Intended Audience :: Science/Research",
+        "License :: OSI Approved :: BSD License",
+        "Operating System :: MacOS :: MacOS X",
+        "Operating System :: Microsoft :: Windows",
+        "Operating System :: POSIX",
+        "Programming Language :: C",
+        "Programming Language :: Python :: 3",
+        "Topic :: Multimedia :: Graphics :: 3D Rendering",
+        "Topic :: Scientific/Engineering",
+        "Topic :: Scientific/Engineering :: Information Analysis",
+        "Typing :: Typed",
     ],
 )
