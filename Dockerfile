@@ -30,4 +30,4 @@ RUN cd LightField/ \
   && make \
   && make release 
 
-VOLUME volume
+VOLUME /usr/src/app/volume

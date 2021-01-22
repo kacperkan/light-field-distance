@@ -52,7 +52,9 @@ def get_light_field_distance(obj_file1: str, obj_file2: str) -> float:
     file1 = Path(obj_file1)
     file2 = Path(obj_file2)
 
-    with tempfile.TemporaryDirectory() as volume_folder:
+    with tempfile.TemporaryDirectory(
+            dir=Path.home().as_posix()
+    ) as volume_folder:
         vol_folder = Path(volume_folder)
         shutil.copy2(file1.as_posix(), vol_folder / file1.name)
         shutil.copy2(file2.as_posix(), vol_folder / file2.name)
@@ -74,8 +76,15 @@ def get_light_field_distance(obj_file1: str, obj_file2: str) -> float:
             tty=True,
         )
 
-        (vol_folder / file1.name).unlink()
-        (vol_folder / file2.name).unlink()
+        try:
+            (vol_folder / file1.name).unlink()
+        except:
+            pass
+
+        try:
+            (vol_folder / file2.name).unlink()
+        except:
+            pass
     return find_similarity_in_logs(stdout)
 
 
