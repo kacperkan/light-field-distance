@@ -20,7 +20,7 @@ COPY . .
 ENV DISPLAY :99 
 
 # this is necessary to obtain the results as for the desktop app
-ENV GALLIUM_DRIVER swr 
+ENV GALLIUM_DRIVER llvmpipe 
 
 RUN cd 3DAlignment/ \
   && make \
